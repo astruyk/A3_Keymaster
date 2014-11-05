@@ -1,4 +1,5 @@
 import sys;
+import os;
 import urllib.request;
 import json;
 import re;
@@ -99,13 +100,17 @@ if 'manualMods' in configJson:
 
 # Generate the set of keys that are required
 print ("Looking up keys for " + str(len(mods)) + " mods.");
-keys = set();
+requiredKeys = {}; #mapping of key name to array of mods that require it (for reporting)
 
 # Add keys that were associated with mods.
 missingMappingEntry = set();
 for modName in mods:
 	if modName in mappingJson:
-		keys.update(mappingJson[modName]);
+		for key in mappingJson[modName]:
+			if (key in requiredKeys):
+				requiredKeys[key].append(modName);
+			else:
+				requiredKeys[key] = [modName];
 	else:
 		missingMappingEntry.add(modName);
 if len(missingMappingEntry) > 0:
@@ -117,46 +122,38 @@ if len(missingMappingEntry) > 0:
 
 # Add any manually specified keys from the JSON file.
 if 'manualKeys' in configJson:
-	keys.update(configJson['manualKeys']);
+	for key in configJson['manualKeys']:
+		if (key in requiredKeys):
+			requiredKeys[key].append('Manual');
+		else:
+			requiredKeys[key] = ['Manual'];
 
-print ("Found " + str(len(keys)) + " key(s) to add.");
-
-
-"""
-
-# Parse the downloaded file data to extract the list of mods
-print ("Downloaded successfully. Parsing...", end="");
-isInModList = False;
-modRegex = re.compile('\s*-\s*"(@\w+)"');
-mods = [];
-for line in data.decode('utf-8').split('\n'):
-	if line.startswith(':name: '):
-		serverName = line[len(':name: '):];
-	if (isInModList and line.startswith(':')):
-		isInModList = False;
-	if ':required_mods:' in line:
-		isInModList = True;
-	if ':allowed_mods:' in line:
-		isInModList = True;
-	if isInModList:
-		modNameMatch = modRegex.match(line);
-		if (modNameMatch):
-			print ('.', end="");
-			mods.append(modNameMatch.group(1).lower());
+# Download the keys from the keystore
+print ("Grabbing " + str(len(requiredKeys.keys())) + " key(s) needed for update:");
+if not os.path.exists('tmp'):
+	os.makedirs('tmp');
+for keyName in sorted(requiredKeys.keys()):
+	keyUrl = configJson['keyLocation'] + "/" + urllib.parse.quote(keyName);
+	print ("\t" + keyName + " (" + ",".join(requiredKeys[keyName]) + ")");
+	request = urllib.request.urlretrieve(keyUrl, 'tmp/' + keyName);
 print ("Done.");
 
-# print ("Server '" + serverName + "' with " + str(len(mods)) + " mods.");
-
-print ('Connecting to FTP server...');
-keySources = [];
-with FTP(options.address) as ftp:
-	ftp.login(options.login, options.password);
-	ftp.cwd(options.directory);
-	fileInfo = ftp.nlst();
-	[x.lower() for x in fileInfo];
-	for modName in mods:
-		if (modName in fileInfo):
-			print ("FOUND mod - " + modName);
+# Connect to the server and update the keys as necessary
+print ('Connecting to FTP server...', end="");
+with FTP(configJson['ftpAddress']) as ftp:
+	ftp.login(configJson['ftpUser'], configJson['ftpPassword']);
+	ftp.cwd(configJson['ftpPath']);
+	print ("Connected.");
+	print ('Checking keys on server:');
+	filesOnServerAtStart = ftp.nlst();
+	for existingFile in filesOnServerAtStart:
+		if (existingFile in requiredKeys.keys()):
+			print ("\tUpdating key: " + existingFile + " ...", end="");
+			print ("Done.")
 		else:
-			print ("NOT FOUND mod - " + modName);
-"""
+			print ("\tDeleting key: " + existingFile + " ...", end="");
+			print ("Done.")
+	for requiredKey in requiredKeys.keys():
+		if not requiredKey in filesOnServerAtStart:
+			print ("\tUploading key: " + requiredKey + " ...", end="");
+			print ("Done.")
