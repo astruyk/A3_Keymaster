@@ -147,13 +147,11 @@ with FTP(configJson['ftpAddress']) as ftp:
 	print ('Checking keys on server:');
 	filesOnServerAtStart = ftp.nlst();
 	for existingFile in filesOnServerAtStart:
-		if (existingFile in requiredKeys.keys()):
-			print ("\tUpdating key: " + existingFile + " ...", end="");
-			print ("Done.")
-		else:
-			print ("\tDeleting key: " + existingFile + " ...", end="");
-			print ("Done.")
+		print ("\tRemoving existing key: " + existingFile + " ...", end="");
+		ftp.delete(existingFile);
+		print ("Done.")
 	for requiredKey in requiredKeys.keys():
-		if not requiredKey in filesOnServerAtStart:
-			print ("\tUploading key: " + requiredKey + " ...", end="");
-			print ("Done.")
+		print ("\tUploading key: " + requiredKey + " ...", end="");
+		with open("tmp/" + requiredKey, "rb") as file:
+			ftp.storbinary('STOR ' + requiredKey, file);
+		print ("Done.")
