@@ -154,4 +154,6 @@ with FTP(configJson['ftpAddress']) as ftp:
 		print ("\tUploading key: " + requiredKey + " ...", end="");
 		with open("tmp/" + requiredKey, "rb") as file:
 			ftp.storbinary('STOR ' + requiredKey, file);
-		print ("Done.")
+		print ("Done.");
+
+print ("Operation was a success!! Congratulations.");
