@@ -1,11 +1,13 @@
 import sys;
 import os;
 import json;
+import shutil;
 from optparse import OptionParser;
 
 parser = OptionParser();
 parser.add_option("-i", "--inputDir", dest = "inputDir", help = "The local mod folder to use to generate the mapping.");
 parser.add_option("-o", "--outputFile", dest = "outputFile", help = "The location of the key file to generate.");
+parser.add_option("-c", "--captureKeys", dest = "captureKeys", default=True, help = "Capture the found keys and copy them into the folder alongside the mapping file.")
 
 (options, args) = parser.parse_args();
 if (options.inputDir == None ):
@@ -26,6 +28,7 @@ if not os.path.isdir(options.inputDir):
 	sys.exit(1);
 
 modMappings = {};
+keyFileLocations = {};
 for pathName in os.listdir(options.inputDir):
 	modDir = os.path.join(options.inputDir, pathName);
 	if (pathName.startswith("@") and os.path.isdir(modDir)):
@@ -40,6 +43,7 @@ for pathName in os.listdir(options.inputDir):
 					if keyFile.endswith('.bikey'):
 						print ("\t\t\tKey file found: " + keyFile);
 						keys.append(keyFile);
+						keyFileLocations[keyFile] = os.path.join(keysDir, keyFile);
 				print ("\tExtracted " + str(len(keys)) + " key(s).");
 		if len(keys) > 0:
 			modMappings[pathName] = keys;
@@ -47,3 +51,10 @@ for pathName in os.listdir(options.inputDir):
 jsonOutput = json.dumps(modMappings, sort_keys=True, indent=4, separators=(',', ':'));
 with open(options.outputFile, "w") as outputFile:
     outputFile.write(jsonOutput)
+
+if (options.captureKeys):
+	destinationDir = os.path.dirname(options.outputFile);
+	print ("Copying keys to " + destinationDir);
+	for key,location in keyFileLocations.items():
+		print ("\t" + key);
+		shutil.copy(location, destinationDir);
