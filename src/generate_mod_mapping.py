@@ -7,7 +7,8 @@ from optparse import OptionParser;
 parser = OptionParser();
 parser.add_option("-i", "--inputDir", dest = "inputDir", help = "The local mod folder to use to generate the mapping.");
 parser.add_option("-o", "--outputFile", dest = "outputFile", help = "The location of the key file to generate.");
-parser.add_option("-c", "--captureKeys", dest = "captureKeys", default=True, help = "Capture the found keys and copy them into the folder alongside the mapping file.")
+parser.add_option("-c", "--captureKeys", dest = "captureKeys", default = True, help = "Capture the found keys and copy them into the key dir.");
+parser.add_option("-k", "--keyDir", dest = "keyDir", help = "The directory in which to store the keyfiles. If not specified the same directory of the output file will be used.");
 
 (options, args) = parser.parse_args();
 if (options.inputDir == None ):
@@ -54,6 +55,8 @@ with open(options.outputFile, "w") as outputFile:
 
 if (options.captureKeys):
 	destinationDir = os.path.dirname(options.outputFile);
+	if (options.keyDir != None):
+		destinationDir = options.keyDir;
 	print ("Copying keys to " + destinationDir);
 	for key,location in keyFileLocations.items():
 		print ("\t" + key);
