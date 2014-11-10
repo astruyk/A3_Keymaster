@@ -1,3 +1,9 @@
+"""
+	Generates a mapping of Arma3 mod names -> keys required for those mods and gathers the keys together for use with keymaster.
+	
+	See https://github.com/astruyk/A3_Keymaster/wiki for details.
+"""
+
 import sys;
 import os;
 import json;

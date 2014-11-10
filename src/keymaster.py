@@ -1,3 +1,9 @@
+"""
+	Gathers a set of keys together and uploads them to an FTP server based on a JSON config file.
+	
+	See https://github.com/astruyk/A3_Keymaster/wiki for details.
+"""
+
 import sys;
 import os;
 import urllib.request;
