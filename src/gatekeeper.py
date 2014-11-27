@@ -155,6 +155,21 @@ if ('parFileSource' in configJson) and ('parFileFtpPath' in configJson):
 else:
 	print ("No PAR file specified... Skipping.");
 
+#Check to see if we need to add the -mod line in the PAR file
+if (parFileName != '') and ('parFileUpdateModList' in configJson) and (configJson['parFileUpdateModList'].lower() == 'true'):
+	clientOnlyMods = [];
+	serverSpecificMods = [];
+	serverStartupMods = [];
+	if ('parFileModMetadataFile' in configJson):
+		parFileModMetadataFileName = os.path.basename(configJson['parFileModMetadataFile']);
+		print ("Grabbing required list of mods for server startup command...", end="");
+		request = urllib.request.urlretrieve(configJson['parFileModMetadataFile'], 'tmp/' + parFileModMetadataFileName);
+		print ("Done.");
+		print ("Extracting list of client-only mods...", end="");
+		# TODO complete me
+		print ("Done.");
+	# TODO go through the list of mods in the server config file and add them to the list of mods for the server
+
 # Connect to the server and update the keys as necessary
 print ('Connecting to FTP server...', end="");
 with FTP(configJson['ftpAddress']) as ftp:
