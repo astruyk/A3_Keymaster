@@ -74,7 +74,7 @@ mappingJson = json.loads(data.decode('utf-8'));
 mappingJson = dict((key.lower(), value) for key,value in mappingJson.items());
 
 # Generate a set of mods that are required based on the PW6 config file and any additional user-specified values
-mods = set();
+mods = [];
 if 'playWithSixServerConfigUrl' in configJson:
 	print ("Downloading play with six configuration file...", end="");
 	request = urllib.request.urlopen(configJson['playWithSixServerConfigUrl']);
@@ -99,10 +99,85 @@ if 'playWithSixServerConfigUrl' in configJson:
 			isInModList = True;
 		if isInModList:
 			modNameMatch = modRegex.match(line);
-			if (modNameMatch):
-				mods.add(modNameMatch.group(1).lower());
+			if (modNameMatch and not (modNameMatch.group(1).lower() in mods)):
+				mods.append(modNameMatch.group(1).lower());
 if 'manualMods' in configJson:
-	mods.update(map(str.lower, configJson['manualMods']));
+	for modName in map(str.lower, configJson['manualMods']):
+		if not modName in mods:
+			mods.append(modName);
+
+# Check to see if there is a .PAR file specified, and download it
+parFileContents = '';
+if ('parFileSource' in configJson) and ('parFileFtpPath' in configJson):
+	print ("Grabbing PAR file...", end="");
+	request = urllib.request.urlopen(configJson['parFileSource']);
+	try:
+		data = request.read();
+		request.close();
+		parFileContents = data.decode('utf-8');
+	except Exception:
+		print (traceback.format_exc());
+		sys.exit(1);
+	print ("Done.");
+else:
+	print ("No PAR file specified... Skipping.");
+
+# Check to see if we need to add the -mod line in the PAR file
+if (parFileContents != '') and ('parFileUpdateModList' in configJson) and (configJson['parFileUpdateModList'].lower() == 'true'):
+	clientOnlyMods = [];
+	serverSpecificMods = [];
+	serverStartupMods = [];
+	
+	# Pull down the file that contains the list of client-only mods (if it is specified)
+	if ('parFileClientOnlyModList' in configJson):
+		print ("Grabbing list of client-only mods...", end="");
+		request = urllib.request.urlopen(configJson['parFileClientOnlyModList']);
+		try:
+			data = request.read();
+			request.close();
+			clientOnlyModFileContents = json.loads(data.decode('utf-8'));
+			for modName in clientOnlyModFileContents:
+				clientOnlyMods.append(modName.lower());
+		except Exception:
+			print (traceback.format_exc());
+			sys.exit(1);
+		print ("Done.");
+		
+		print ("Retrieved " + str(len(clientOnlyMods)) + " client only mods:");
+		for modName in clientOnlyMods:
+			print ("\t" + modName);
+	
+	# Go through the list of mods in the server config file and add them to the list of mods for the server
+	for modName in mods:
+		if (not modName in clientOnlyMods):
+			serverStartupMods.append(modName);
+	
+	# Go through the list of server specific mods (might not be in mod list) and add them to the list
+	# of mods for the server to start with.
+	for modName in serverSpecificMods:
+		if not (modName in clientOnlyMods):
+			clientOnlyMods.append(modName);
+
+	print ("Found " + str(len(serverStartupMods)) + " mods that need to be in server startup command:");
+	modCommandLine = 'mod="-mod=' + ";".join(serverStartupMods) + '";';
+	for modName in serverStartupMods:
+		print ("\t" + modName);
+
+	newParFileContents = '';
+	print (parFileContents.split('\r\n'));
+	for line in parFileContents.split('\r\n'):
+		if '-mod=' in line:
+			line = "// Disabled by automated script. Using generated value.\n//" + line;
+		if '};' in line:
+			line = "// Generated command line:\n\t" + modCommandLine + "\n" + line;
+		newParFileContents += line + "\n";
+	parFileContents = newParFileContents;
+
+	print ("NEW PAR FILE:");
+	print (newParFileContents);
+	
+print ("STOPPING FOR DEBUGGIN'");
+sys.exit(0);
 
 # Generate the set of keys that are required
 print ("Looking up keys for " + str(len(mods)) + " mods.");
@@ -144,38 +219,14 @@ for keyName in sorted(requiredKeys.keys()):
 	request = urllib.request.urlretrieve(keyUrl, 'tmp/' + keyName);
 print ("Done.");
 
-# Check to see if there is a .PAR file specified, and download it
-parFileName = '';
-if ('parFileSource' in configJson) and ('parFileFtpPath' in configJson):
-	print ("Grabbing PAR file...", end="");
-	parFileUrl = configJson['parFileSource'];
-	parFileName = os.path.basename(configJson['parFileFtpPath']);
-	request = urllib.request.urlretrieve(parFileUrl, 'tmp/' + parFileName);
-	print ("Done.");
-else:
-	print ("No PAR file specified... Skipping.");
-
-#Check to see if we need to add the -mod line in the PAR file
-if (parFileName != '') and ('parFileUpdateModList' in configJson) and (configJson['parFileUpdateModList'].lower() == 'true'):
-	clientOnlyMods = [];
-	serverSpecificMods = [];
-	serverStartupMods = [];
-	if ('parFileModMetadataFile' in configJson):
-		parFileModMetadataFileName = os.path.basename(configJson['parFileModMetadataFile']);
-		print ("Grabbing required list of mods for server startup command...", end="");
-		request = urllib.request.urlretrieve(configJson['parFileModMetadataFile'], 'tmp/' + parFileModMetadataFileName);
-		print ("Done.");
-		print ("Extracting list of client-only mods...", end="");
-		# TODO complete me
-		print ("Done.");
-	# TODO go through the list of mods in the server config file and add them to the list of mods for the server
-
 # Connect to the server and update the keys as necessary
 print ('Connecting to FTP server...', end="");
 with FTP(configJson['ftpAddress']) as ftp:
 	ftp.login(configJson['ftpUser'], configJson['ftpPassword']);
 	ftp.cwd(configJson['ftpPath']);
 	print ("Connected.");
+	
+	# Update the keys on the server...
 	print ('Checking keys on server:');
 	filesOnServerAtStart = ftp.nlst();
 	for existingFile in filesOnServerAtStart:
@@ -187,18 +238,20 @@ with FTP(configJson['ftpAddress']) as ftp:
 		with open("tmp/" + requiredKey, "rb") as file:
 			ftp.storbinary('STOR ' + requiredKey, file);
 		print ("Done.");
-	if (parFileName != ''):
+	
+	# Update the PAR file if we have contents for that
+	if (parFileContents != ''):
 		print ("Updating PAR file ...");
 		ftp.cwd(os.path.dirname(configJson['parFileFtpPath']));
 		filesInParDir = ftp.nlst();
+		parFileName = os.path.basename(configJson['parFileFtpPath']);
 		if (parFileName in filesInParDir):
 			print ("\tRemoving old PAR file ...", end="");
 			ftp.delete(parFileName);
 			print ("Done.");
 		print ("\tUploading new PAR file ...", end="");
-		with open("tmp/" + parFileName, "rb") as file:
-			ftp.storbinary('STOR ' + parFileName, file);
-			print ("Done.");
+		ftp.storbinary('STOR ' + parFileName, parFileContents);
+		print ("Done.");
 		print ("Done.");
 print ("");
 print ("Operation was a success!! Congratulations.");
