@@ -2,6 +2,11 @@ This program is a quick script intended to make changing the keys on the server 
 
 See https://github.com/astruyk/A3_ServerManager/wiki for usage instructions and details.
 
+Version 1.2.0
+* Support updating -mod command in the .par file dynamically based on the mods being run
+* Support downloading a list of 'client-only' mods to prevent certain mods from running on the server
+* Minor wording tweaks in output messages and order change for PAR file processing
+
 Version 1.1.0
 * Renamed project from 'A3_ServerUpdated' to 'A3_Keymaster' because ghostbusters is cool.
 * Added option (--keyDir) to allow specifying a directory to place the gathered keys in when updating server
