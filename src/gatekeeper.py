@@ -9,6 +9,7 @@ import os;
 import urllib.request;
 import json;
 import re;
+import io;
 import traceback;
 from optparse import OptionParser;
 from ftplib import FTP;
@@ -123,7 +124,7 @@ else:
 	print ("No PAR file specified... Skipping.");
 
 # Check to see if we need to add the -mod line in the PAR file
-if (parFileContents != '') and ('parFileUpdateModList' in configJson) and (configJson['parFileUpdateModList'].lower() == 'true'):
+if (parFileContents != '') and ('parFileGenerateModParameter' in configJson) and (configJson['parFileGenerateModParameter'].lower() == 'true'):
 	clientOnlyMods = [];
 	serverSpecificMods = [];
 	serverStartupMods = [];
@@ -157,14 +158,15 @@ if (parFileContents != '') and ('parFileUpdateModList' in configJson) and (confi
 	for modName in serverSpecificMods:
 		if not (modName in clientOnlyMods):
 			clientOnlyMods.append(modName);
-
 	print ("Found " + str(len(serverStartupMods)) + " mods that need to be in server startup command:");
-	modCommandLine = 'mod="-mod=' + ";".join(serverStartupMods) + '";';
 	for modName in serverStartupMods:
 		print ("\t" + modName);
 
+	# Generate a new command line to specify the mods
+	modCommandLine = 'mod="-mod=' + ";".join(serverStartupMods) + '";';
+	
+	# Modify the existing PAR file with the new mod line
 	newParFileContents = '';
-	print (parFileContents.split('\r\n'));
 	for line in parFileContents.split('\r\n'):
 		if '-mod=' in line:
 			line = "// Disabled by automated script. Using generated value.\n//" + line;
@@ -172,12 +174,6 @@ if (parFileContents != '') and ('parFileUpdateModList' in configJson) and (confi
 			line = "// Generated command line:\n\t" + modCommandLine + "\n" + line;
 		newParFileContents += line + "\n";
 	parFileContents = newParFileContents;
-
-	print ("NEW PAR FILE:");
-	print (newParFileContents);
-	
-print ("STOPPING FOR DEBUGGIN'");
-sys.exit(0);
 
 # Generate the set of keys that are required
 print ("Looking up keys for " + str(len(mods)) + " mods.");
@@ -250,7 +246,8 @@ with FTP(configJson['ftpAddress']) as ftp:
 			ftp.delete(parFileName);
 			print ("Done.");
 		print ("\tUploading new PAR file ...", end="");
-		ftp.storbinary('STOR ' + parFileName, parFileContents);
+		file = io.BytesIO(parFileContents.encode("utf-8"))
+		ftp.storbinary('STOR ' + parFileName, file);
 		print ("Done.");
 		print ("Done.");
 print ("");
