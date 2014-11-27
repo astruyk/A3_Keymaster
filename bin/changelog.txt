@@ -1,2 +1,7 @@
+Version 1.1.0
+* Renamed project from 'A3_ServerUpdated' to 'A3_Keymaster' because ghostbusters is cool.
+* Added option (--keyDir) to allow specifying a directory to place the gathered keys in when updating server
+* Added support for updating a .par file on the server when updating the keys
+
 Version 1.0.0
 * Initial Release
