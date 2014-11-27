@@ -144,6 +144,17 @@ for keyName in sorted(requiredKeys.keys()):
 	request = urllib.request.urlretrieve(keyUrl, 'tmp/' + keyName);
 print ("Done.");
 
+# Check to see if there is a .PAR file specified, and download it
+parFileName = '';
+if ('parFileSource' in configJson) and ('parFileFtpPath' in configJson):
+	print ("Grabbing PAR file...", end="");
+	parFileUrl = configJson['parFileSource'];
+	parFileName = os.path.basename(configJson['parFileFtpPath']);
+	request = urllib.request.urlretrieve(parFileUrl, 'tmp/' + parFileName);
+	print ("Done.");
+else:
+	print ("No PAR file specified... Skipping.");
+
 # Connect to the server and update the keys as necessary
 print ('Connecting to FTP server...', end="");
 with FTP(configJson['ftpAddress']) as ftp:
@@ -161,5 +172,16 @@ with FTP(configJson['ftpAddress']) as ftp:
 		with open("tmp/" + requiredKey, "rb") as file:
 			ftp.storbinary('STOR ' + requiredKey, file);
 		print ("Done.");
-
+	if (parFileName != ''):
+		ftp.cwd(os.path.dirname(configJson['parFileFtpPath']));
+		filesInParDir = ftp.nlst();
+		if (parFileName in filesInParDir):
+			print ("\tRemoving old PAR file ...", end="");
+			ftp.delete(parFileName);
+			print ("Done.");
+		print ("Updating PAR file ...", end="");
+		with open("tmp/" + parFileName, "rb") as file:
+			ftp.storbinary('STOR ' + parFileName, file);
+		print ("Done.");
+print ("");
 print ("Operation was a success!! Congratulations.");
