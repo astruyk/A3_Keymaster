@@ -173,15 +173,17 @@ with FTP(configJson['ftpAddress']) as ftp:
 			ftp.storbinary('STOR ' + requiredKey, file);
 		print ("Done.");
 	if (parFileName != ''):
+		print ("Updating PAR file ...");
 		ftp.cwd(os.path.dirname(configJson['parFileFtpPath']));
 		filesInParDir = ftp.nlst();
 		if (parFileName in filesInParDir):
 			print ("\tRemoving old PAR file ...", end="");
 			ftp.delete(parFileName);
 			print ("Done.");
-		print ("Updating PAR file ...", end="");
+		print ("\tUploading new PAR file ...", end="");
 		with open("tmp/" + parFileName, "rb") as file:
 			ftp.storbinary('STOR ' + parFileName, file);
+			print ("Done.");
 		print ("Done.");
 print ("");
 print ("Operation was a success!! Congratulations.");
