@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 
-namespace Keymaster
+namespace Gatekeeper
 {
 	class AppDataSource : INotifyPropertyChanged
 	{
@@ -79,7 +79,7 @@ namespace Keymaster
 
 		private void ShowAboutDialog(object parameter)
 		{
-			System.Windows.MessageBox.Show("Keymaster Version " + System.Diagnostics.FileVersionInfo.GetVersionInfo(System.Reflection.Assembly.GetExecutingAssembly().Location).FileVersion);
+			System.Windows.MessageBox.Show("Gatekeeper Version " + System.Diagnostics.FileVersionInfo.GetVersionInfo(System.Reflection.Assembly.GetExecutingAssembly().Location).FileVersion);
 		}
 
 		private void OnPropertyChanged(string propertyName)

@@ -7,7 +7,7 @@
     <ProjectGuid>{85172ECF-4FE0-4D2B-A535-A454B2C860F5}</ProjectGuid>
     <OutputType>WinExe</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Keymaster</RootNamespace>
+    <RootNamespace>Gatekeeper</RootNamespace>
     <AssemblyName>Keymaster</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
