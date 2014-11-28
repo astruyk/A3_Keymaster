@@ -27,10 +27,10 @@
 				<ColumnDefinition Width="*"/>
 				<ColumnDefinition Width="Auto"/>
 			</Grid.ColumnDefinitions>
-			<ComboBox Grid.Column="0" ItemsSource="{Binding ProjectNames}" />
-			<Button Grid.Column="1" Content="GO!" IsDefault="True" Margin="5,0,0,0" Padding="1" MinWidth="100" />
+			<ComboBox Grid.Column="0" ItemsSource="{Binding ServerSettings.Configs, Mode=OneWay}" SelectedIndex="{Binding SelectedServerSettings}" />
+			<Button Grid.Column="1" Content="GO!" IsDefault="True" Margin="5,0,0,0" Padding="1" MinWidth="100" Command="{Binding StartCommand, Mode=OneWay}" />
 		</Grid>
 
-		<TextBlock Grid.Row="2" />
+		<TextBlock Grid.Row="2" Text="{Binding OutputText, Mode=OneWay}" />
 	</Grid>
 </Window>

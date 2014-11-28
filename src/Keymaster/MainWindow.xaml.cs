@@ -30,12 +30,8 @@ namespace Keymaster
 			{
 				XElement clientSettings = XElement.Load("settings.xml");
 				var configUrl = clientSettings.Descendants().Where(x => x.Name == "configUrl").First().Value;
-				ServerConfig serverConfig = ServerConfig.LoadFromUrl(configUrl);
-
-				foreach (var config in serverConfig.Configs)
-				{
-					((AppDataSource)DataContext).ProjectNames.Add(config.Name);
-				}
+				ServerSettings serverConfig = ServerSettings.LoadFromUrl(configUrl);
+				((AppDataSource)DataContext).SetServerStettings(serverConfig);
 			}
         }
 

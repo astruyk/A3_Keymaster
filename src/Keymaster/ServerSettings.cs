@@ -8,7 +8,7 @@ using System.Xml.Linq;
 
 namespace Keymaster
 {
-	class ServerConfig
+	class ServerSettings
 	{
 		public String FtpAddress { get; private set; }
 		public String FtpUser { get; private set; }
@@ -22,7 +22,7 @@ namespace Keymaster
 		public List<String> ClientOnlyModList { get; private set; }
 		public List<Config> Configs { get; private set; }
 
-		public ServerConfig(XElement rootElement)
+		public ServerSettings(XElement rootElement)
 		{
 			ManualKeys = new List<string>();
 			ManualMods = new List<string>();
@@ -64,16 +64,18 @@ namespace Keymaster
 				PlayWithSixConfigFileUrl = rootElement.Element("playWithSixConfigFileUrl").Value;
 				ParFileSourceUrl = rootElement.Element("parFileSourceUrl").Value;
 			}
+
+			public override string ToString()
+			{
+				return Name;
+			}
 		}
 
-		public static ServerConfig LoadFromUrl(string url)
+		public static ServerSettings LoadFromUrl(string url)
 		{
-			WebRequest request = HttpWebRequest.Create(url);
-			using (var response = request.GetResponse())
-			{
-				var responseStream = response.GetResponseStream();
-				return new ServerConfig(XElement.Load(responseStream));
-			}
+			WebClient client = new WebClient();
+			var urlContents = client.DownloadString(url);
+			return new ServerSettings(XElement.Parse(urlContents));
 		}
 	}
 }
