@@ -1,3 +1,5 @@
 src/tmp/
 tmp/
 src/__pycache__/
+src/Keymaster/bin/
+src/Keymaster/obj/
