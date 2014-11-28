@@ -259,7 +259,7 @@ namespace Gatekeeper
 
 		private string GetModifiedParFileContents(string originalParFileContents, string modCommandLine)
 		{
-			var parFileModCommand = string.Format(@"mod=""-mod={0}"";", modCommandLine);
+			var parFileModCommand = string.Format(@"mod=""{0}"";", modCommandLine);
 			var modifiedFileContents = new StringBuilder();
 			foreach (var line in originalParFileContents.Split(new string[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries))
 			{
