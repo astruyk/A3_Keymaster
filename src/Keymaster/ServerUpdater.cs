@@ -2,6 +2,7 @@
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
@@ -96,9 +97,12 @@ namespace Gatekeeper
 
 			// Generate the command line we need to run to start the server
 			var modCommandLine = string.Format("-mod={0}",  String.Join(";", modsForServer));
-			var parFileModCommand = string.Format(@"mod=""-mod={0}"";", modCommandLine);
 			Log("Generated mod command-line args for server.");
 			Log(LogLevel.Debug, modCommandLine);
+
+			// Generate a modified version of the par file
+			var parFileContentsToUpload = GetModifiedParFileContents(parFileContents, modCommandLine);
+			Log(LogLevel.Debug, "Par File Contents:\n\n{0}", parFileContentsToUpload);
 
 			// Generate a mapping of the keys we need to install to the list of mods
 			// that require them (for reporting)
@@ -148,9 +152,51 @@ namespace Gatekeeper
 				Log("\t{0} -> {{ {1} }}", entry.Key, String.Join(",", entry.Value));
 			}
 
+			// Actually download all the keys we need
+			StartNewPhase(Phase.DownloadingKeyFiles);
+			Log("Downloading {0} keys from keystore...", keysToInstall.Count());
+			var tmpDirectory = "tmp";
+			if (!Directory.Exists(tmpDirectory))
+			{
+				Directory.CreateDirectory(tmpDirectory);
+			}
+			foreach (var keyName in keysToInstall.Keys)
+			{
+				var keyUrl = string.Format("{0}/{1}", _settings.KeystoreUrl, keyName);
+				var keyFileLoc = Path.Combine(tmpDirectory, keyName);
+				Log("{0}", keyName);
+				Log(LogLevel.Debug, "\t( {0} -> {1} )", keyUrl, keyFileLoc);
+				client.DownloadFile(keyUrl, keyFileLoc);
+			}
+			Log("Done downloading keys.");
+
+			// Login to the FTP server
+			StartNewPhase(Phase.ConnectingToFtpServer);
+
+
 			Log("Done!");
 			Log("");
 			Log("Successfully updated server!");
+		}
+
+		private string GetModifiedParFileContents(string originalParFileContents, string modCommandLine)
+		{
+			var parFileModCommand = string.Format(@"mod=""-mod={0}"";", modCommandLine);
+			var modifiedFileContents = new StringBuilder();
+			foreach (var line in originalParFileContents.Split(new string[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries))
+			{
+				string modifiedLine = line;
+				if (modifiedLine.Contains("-mod="))
+				{
+					modifiedLine = "// Disabled by Gatekeeper: " + line;
+				}
+				if (modifiedLine.Contains("};"))
+				{
+					modifiedLine = "\t" + parFileModCommand + "\t// Generated command line." + Environment.NewLine + line;
+				}
+				modifiedFileContents.AppendLine(modifiedLine);
+			}
+			return modifiedFileContents.ToString();
 		}
 
 		private List<string> GetModsFromPlayWithSixFile(string playWithSixConfigFileContents)
