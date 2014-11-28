@@ -39,6 +39,9 @@ namespace Gatekeeper
 
 		void worker_DoWork(object sender, DoWorkEventArgs e)
 		{
+			_outputTextBuilder.Clear();
+			OnPropertyChanged("OutputText");
+
 			var updater = (ServerUpdater) e.Argument;
 			updater.OutputGenerated += updater_OutputGenerated;
 			updater.DoUpdate();
