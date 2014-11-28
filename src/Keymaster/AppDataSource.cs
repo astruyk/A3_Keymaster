@@ -41,7 +41,7 @@ namespace Gatekeeper
 		{
 			var updater = (ServerUpdater) e.Argument;
 			updater.OutputGenerated += updater_OutputGenerated;
-			updater.StartUpdate();
+			updater.DoUpdate();
 		}
 
 		void worker_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)

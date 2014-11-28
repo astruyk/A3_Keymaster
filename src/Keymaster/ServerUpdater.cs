@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.FtpClient;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -59,7 +60,21 @@ namespace Gatekeeper
 			CurrentPhase = Phase.Idle;
 		}
 
-		public void StartUpdate()
+		public void DoUpdate()
+		{
+			try
+			{
+				DoUpdateInternal();
+			}
+			catch(Exception ex)
+			{
+				Log(LogLevel.Error, "Something went wrong!!");
+				Log(LogLevel.Error, " -- Writing out Exception Log - Send the following to your server admin to help diagnose the problem:");
+				Log(ex.ToString());
+			}
+		}
+
+		private void DoUpdateInternal()
 		{
 			Log("Starting...");
 			WebClient client = new WebClient();
@@ -67,7 +82,7 @@ namespace Gatekeeper
 			Log(LogLevel.Debug, "Downloading {0}", _settings.KeyMappingFileUrl);
 			var keyMappingFileContents = client.DownloadString(_settings.KeyMappingFileUrl);
 			var keyMappings = JsonConvert.DeserializeObject<Dictionary<string, string[]>>(keyMappingFileContents);
-			keyMappings = new Dictionary<string,string[]>(keyMappings, StringComparer.CurrentCultureIgnoreCase);
+			keyMappings = new Dictionary<string, string[]>(keyMappings, StringComparer.CurrentCultureIgnoreCase);
 
 			StartNewPhase(Phase.DownloadingPlayWithSixConfig);
 			Log(LogLevel.Debug, "Downloading {0}", _config.PlayWithSixConfigFileUrl);
@@ -78,7 +93,7 @@ namespace Gatekeeper
 			string parFileContents = client.DownloadString(_config.ParFileSourceUrl);
 
 			StartNewPhase(Phase.ProcessingDownloadedData);
-			
+
 			// Grab the list of mods in the play with six file.
 			var playWithSixMods = GetModsFromPlayWithSixFile(playWithSixConfigFileContents);
 			Log("Found {0} keys in play with six mod list.", playWithSixMods.Count);
@@ -96,7 +111,7 @@ namespace Gatekeeper
 			}
 
 			// Generate the command line we need to run to start the server
-			var modCommandLine = string.Format("-mod={0}",  String.Join(";", modsForServer));
+			var modCommandLine = string.Format("-mod={0}", String.Join(";", modsForServer));
 			Log("Generated mod command-line args for server.");
 			Log(LogLevel.Debug, modCommandLine);
 
@@ -147,7 +162,7 @@ namespace Gatekeeper
 			}
 
 			Log("Found {0} keys that need to be installed on the server.", keysToInstall.Count());
-			foreach(var entry in keysToInstall)
+			foreach (var entry in keysToInstall)
 			{
 				Log("\t{0} -> {{ {1} }}", entry.Key, String.Join(",", entry.Value));
 			}
@@ -172,7 +187,70 @@ namespace Gatekeeper
 
 			// Login to the FTP server
 			StartNewPhase(Phase.ConnectingToFtpServer);
+			var ftpKeyDirectoryUri = new UriBuilder();
+			ftpKeyDirectoryUri.Scheme = "ftp";
+			ftpKeyDirectoryUri.Path = "";
+			ftpKeyDirectoryUri.Host = _settings.FtpAddress;
+			ftpKeyDirectoryUri.UserName = _settings.FtpUser;
+			ftpKeyDirectoryUri.Password = _settings.FtpPassword;
 
+			Log(LogLevel.Debug, "Connecting to {0}", ftpKeyDirectoryUri.Uri);
+			using (var ftpClient = FtpClient.Connect(ftpKeyDirectoryUri.Uri))
+			{
+				Log(LogLevel.Debug, "Connected.");
+				var files = ftpClient.GetListing(_settings.FtpArmaPath + "keys/");
+				Log(LogLevel.Debug, "Got list of {0} existing keys from server.", files.Count());
+
+				// Remove stale key files
+				StartNewPhase(Phase.RemovingStaleKeys);
+				foreach (var file in files)
+				{
+					Log(LogLevel.Debug, "Deleting stale key: {0}", file.FullName);
+					ftpClient.DeleteFile(file.FullName);
+				}
+
+				// Upload new key files
+				StartNewPhase(Phase.UploadingNewKeys);
+				foreach (var keyName in keysToInstall.Keys)
+				{
+					var localPath = Path.Combine(tmpDirectory, keyName);
+					var remotePath = _settings.FtpArmaPath + "keys/" + keyName;
+					Log(LogLevel.Debug, "Uploading: {0} -> {1}", localPath, remotePath);
+					using (var remoteFile = ftpClient.OpenWrite(remotePath, FtpDataType.Binary))
+					using (var localFile = File.OpenRead(localPath))
+					{
+						localFile.CopyTo(remoteFile);
+					}
+				}
+
+				// Remove old PAR file
+				StartNewPhase(Phase.RemovingStaleParFile);
+				files = ftpClient.GetListing(_settings.FtpArmaPath);
+				foreach (var file in files)
+				{
+					if (file.Name.Equals(_settings.FtpParFileName))
+					{
+						Log("Found stale PAR file.. Deleting.");
+						Log(LogLevel.Debug, "Stale par file at: " + file.FullName);
+						ftpClient.DeleteFile(file.FullName);
+					}
+				}
+
+				// Upload new PAR file
+				StartNewPhase(Phase.UploadingNewParFile);
+				var parFileRemotePath = _settings.FtpArmaPath + _settings.FtpParFileName;
+				Log(LogLevel.Debug, "Uploading par file to {0}", parFileRemotePath);
+				using (var remoteFile = ftpClient.OpenWrite(_settings.FtpArmaPath + _settings.FtpParFileName))
+				using (var parFileMemoryStream = new MemoryStream())
+				using (var parFileStreamWriter = new StreamWriter(parFileMemoryStream))
+				{
+					parFileStreamWriter.Write(parFileContentsToUpload);
+					parFileStreamWriter.Flush();
+					parFileMemoryStream.Position = 0;
+
+					parFileMemoryStream.CopyTo(remoteFile);
+				}
+			}
 
 			Log("Done!");
 			Log("");

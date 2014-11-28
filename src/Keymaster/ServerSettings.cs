@@ -13,8 +13,8 @@ namespace Gatekeeper
 		public String FtpAddress { get; private set; }
 		public String FtpUser { get; private set; }
 		public String FtpPassword { get; private set; }
-		public String FtpKeysPath { get; private set; }
-		public String ParFileFtpPath { get; private set; }
+		public String FtpArmaPath { get; private set; }
+		public String FtpParFileName { get; private set; }
 		public String KeystoreUrl { get; private set; }
 		public String KeyMappingFileUrl { get; private set; }
 		public List<String> ManualKeys { get; private set; }
@@ -33,10 +33,13 @@ namespace Gatekeeper
 			FtpAddress = rootElement.Element("ftpAddress").Value;
 			FtpUser = rootElement.Element("ftpUser").Value;
 			FtpPassword = rootElement.Element("ftpPassword").Value;
-			FtpKeysPath = rootElement.Element("ftpKeysPath").Value;
-			ParFileFtpPath = rootElement.Element("parFileFtpPath").Value;
+			FtpArmaPath = rootElement.Element("ftpArmaPath").Value;
+			FtpParFileName = rootElement.Element("ftpParFileName").Value;
 			KeystoreUrl = rootElement.Element("keystoreUrl").Value;
 			KeyMappingFileUrl = rootElement.Element("keyMappingFileUrl").Value;
+
+			// Fixup the path to look like a dir if it doesn't already
+			if (!FtpArmaPath.EndsWith("/")) { FtpArmaPath += "/"; }
 
 			// Load the manual mods and keys
 			ManualKeys.AddRange(rootElement.Element("manualKeys").Elements("key").Select(x => x.Value));
