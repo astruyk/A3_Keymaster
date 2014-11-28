@@ -17,12 +17,9 @@ namespace Keymaster
 		public String ParFileFtpPath { get; private set; }
 		public String KeystoreUrl { get; private set; }
 		public String KeyMappingFileUrl { get; private set; }
-
 		public List<String> ManualKeys { get; private set; }
 		public List<String> ManualMods { get; private set; }
-
 		public List<String> ClientOnlyModList { get; private set; }
-
 		public List<Config> Configs { get; private set; }
 
 		public ServerConfig(XElement rootElement)
@@ -32,6 +29,23 @@ namespace Keymaster
 			ClientOnlyModList = new List<string>();
 			Configs = new List<Config>();
 
+			// Load the flat strings
+			FtpAddress = rootElement.Element("ftpAddress").Value;
+			FtpUser = rootElement.Element("ftpUser").Value;
+			FtpPassword = rootElement.Element("ftpPassword").Value;
+			FtpKeysPath = rootElement.Element("ftpKeysPath").Value;
+			ParFileFtpPath = rootElement.Element("parFileFtpPath").Value;
+			KeystoreUrl = rootElement.Element("keystoreUrl").Value;
+			KeyMappingFileUrl = rootElement.Element("keyMappingFileUrl").Value;
+
+			// Load the manual mods and keys
+			ManualKeys.AddRange(rootElement.Element("manualKeys").Elements("key").Select(x => x.Value));
+			ManualMods.AddRange(rootElement.Element("manualKeys").Elements("mod").Select(x => x.Value));
+
+			// Load the client only mod list
+			ClientOnlyModList.AddRange(rootElement.Element("clientOnlyModList").Elements("mod").Select(x => x.Value));
+
+			// Load the specific project configs
 			foreach (var configElement in rootElement.Elements("serverConfig"))
 			{
 				Configs.Add(new Config(configElement));
