@@ -11,6 +11,18 @@ namespace Gatekeeper
 {
 	class AppDataSource : INotifyPropertyChanged
 	{
+		public static bool ShowDebugOutput
+		{
+			get { return ServerUpdater.ShowDebugOutput; }
+			set { ServerUpdater.ShowDebugOutput = value; }
+		}
+
+		public static bool SkipFtpActions
+		{
+			get { return ServerUpdater.SkipFtpActions; }
+			set { ServerUpdater.SkipFtpActions = value; }
+		}
+
 		public ICommand ExitCommand { get; private set; }
 		public ICommand OpenWikiInBrowserCommand { get; private set; }
 		public ICommand ShowAboutDialogCommand { get; private set; }

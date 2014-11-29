@@ -17,6 +17,10 @@
 			<MenuItem Header="_File" >
 				<MenuItem Header="_Exit" Command="{Binding ExitCommand, Mode=OneWay}"/>
 			</MenuItem>
+			<MenuItem Header="_Debug" >
+				<MenuItem Header="_Show Debug Output" IsCheckable="True" IsChecked="{Binding ShowDebugOutput}" />
+				<MenuItem Header="_Read-Only FTP Mode" IsCheckable="True" IsChecked="{Binding SkipFtpActions}" />
+			</MenuItem>
 			<MenuItem Header="_Help">
 				<MenuItem Header="_Wiki" Command="{Binding OpenWikiInBrowserCommand, Mode=OneWay}" />
 				<MenuItem Header="_About" Command="{Binding ShowAboutDialogCommand, Mode=OneWay}" />

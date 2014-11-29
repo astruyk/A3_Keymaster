@@ -15,8 +15,8 @@ namespace Gatekeeper
 {
 	class ServerUpdater
 	{
-		private ServerSettings _settings;
-		private ServerSettings.Config _config;
+		public static bool ShowDebugOutput { get; set; }
+		public static bool SkipFtpActions { get; set; }
 
 		public enum Phase
 		{
@@ -53,6 +53,9 @@ namespace Gatekeeper
 			}
 		}
 
+		private ServerSettings _settings;
+		private ServerSettings.Config _config;
+
 		public ServerUpdater(ServerSettings settings, ServerSettings.Config config)
 		{
 			_settings = settings;
@@ -79,17 +82,17 @@ namespace Gatekeeper
 			Log("Starting...");
 			WebClient client = new WebClient();
 			StartNewPhase(Phase.DownloadingMappingFile);
-			Log(LogLevel.Debug, "Downloading {0}", _settings.KeyMappingFileUrl);
+			Log("Downloading {0}", _settings.KeyMappingFileUrl);
 			var keyMappingFileContents = client.DownloadString(_settings.KeyMappingFileUrl);
 			var keyMappings = JsonConvert.DeserializeObject<Dictionary<string, string[]>>(keyMappingFileContents);
 			keyMappings = new Dictionary<string, string[]>(keyMappings, StringComparer.CurrentCultureIgnoreCase);
 
 			StartNewPhase(Phase.DownloadingPlayWithSixConfig);
-			Log(LogLevel.Debug, "Downloading {0}", _config.PlayWithSixConfigFileUrl);
+			Log("Downloading {0}", _config.PlayWithSixConfigFileUrl);
 			string playWithSixConfigFileContents = client.DownloadString(_config.PlayWithSixConfigFileUrl);
 
 			StartNewPhase(Phase.DownloadingParFile);
-			Log(LogLevel.Debug, "Downloading {0}", _config.ParFileSourceUrl);
+			Log("Downloading {0}", _config.ParFileSourceUrl);
 			string parFileContents = client.DownloadString(_config.ParFileSourceUrl);
 
 			StartNewPhase(Phase.ProcessingDownloadedData);
@@ -179,7 +182,7 @@ namespace Gatekeeper
 			{
 				var keyUrl = string.Format("{0}/{1}", _settings.KeystoreUrl, keyName);
 				var keyFileLoc = Path.Combine(tmpDirectory, keyName);
-				Log("{0}", keyName);
+				Log("\t{0}", keyName);
 				Log(LogLevel.Debug, "\t( {0} -> {1} )", keyUrl, keyFileLoc);
 				client.DownloadFile(keyUrl, keyFileLoc);
 			}
@@ -194,65 +197,100 @@ namespace Gatekeeper
 			ftpKeyDirectoryUri.UserName = _settings.FtpUser;
 			ftpKeyDirectoryUri.Password = _settings.FtpPassword;
 
-			Log(LogLevel.Debug, "Connecting to {0}", ftpKeyDirectoryUri.Uri);
+			Log("Connecting to {0}", ftpKeyDirectoryUri.Uri);
 			using (var ftpClient = FtpClient.Connect(ftpKeyDirectoryUri.Uri))
 			{
-				Log(LogLevel.Debug, "Connected.");
+				Log("Connected.");
 				var files = ftpClient.GetListing(_settings.FtpArmaPath + "keys/");
-				Log(LogLevel.Debug, "Got list of {0} existing keys from server.", files.Count());
+				Log("Got list of {0} existing keys from server.", files.Count());
 
 				// Remove stale key files
 				StartNewPhase(Phase.RemovingStaleKeys);
+				Log("Deleting {0} stale keys from server.", files.Count());
 				foreach (var file in files)
 				{
-					Log(LogLevel.Debug, "Deleting stale key: {0}", file.FullName);
-					ftpClient.DeleteFile(file.FullName);
+					Log("\tDeleting stale key: {0}", file.FullName);
+					if (SkipFtpActions)
+					{
+						Log("\tSkipped uploading because 'Local Actions Only' was selected");
+					}
+					else
+					{
+						ftpClient.DeleteFile(file.FullName);
+					}
 				}
+				Log("Done.");
 
 				// Upload new key files
 				StartNewPhase(Phase.UploadingNewKeys);
+				Log("Uploading {0} new keys to server.", keysToInstall.Count());
 				foreach (var keyName in keysToInstall.Keys)
 				{
 					var localPath = Path.Combine(tmpDirectory, keyName);
 					var remotePath = _settings.FtpArmaPath + "keys/" + keyName;
-					Log(LogLevel.Debug, "Uploading: {0} -> {1}", localPath, remotePath);
-					using (var remoteFile = ftpClient.OpenWrite(remotePath, FtpDataType.Binary))
-					using (var localFile = File.OpenRead(localPath))
+					Log("\tUploading: {0} -> {1}", localPath, remotePath);
+					if (SkipFtpActions)
 					{
-						localFile.CopyTo(remoteFile);
+						Log("\tSkipped uploading because 'Local Actions Only' was selected");
+					}
+					else
+					{
+						using (var remoteFile = ftpClient.OpenWrite(remotePath, FtpDataType.Binary))
+						using (var localFile = File.OpenRead(localPath))
+						{
+							localFile.CopyTo(remoteFile);
+						}
 					}
 				}
+				Log("Done.");
 
 				// Remove old PAR file
 				StartNewPhase(Phase.RemovingStaleParFile);
 				files = ftpClient.GetListing(_settings.FtpArmaPath);
+				Log("Checking for stale PAR file");
 				foreach (var file in files)
 				{
 					if (file.Name.Equals(_settings.FtpParFileName))
 					{
-						Log("Found stale PAR file.. Deleting.");
+						Log("\tFound stale PAR file.. Deleting.");
 						Log(LogLevel.Debug, "Stale par file at: " + file.FullName);
-						ftpClient.DeleteFile(file.FullName);
+						if (SkipFtpActions)
+						{
+							Log("\tSkipped uploading because 'Local Actions Only' was selected");
+						}
+						else
+						{
+							ftpClient.DeleteFile(file.FullName);
+						}
 					}
 				}
+				Log("Done.");
 
 				// Upload new PAR file
 				StartNewPhase(Phase.UploadingNewParFile);
 				var parFileRemotePath = _settings.FtpArmaPath + _settings.FtpParFileName;
-				Log(LogLevel.Debug, "Uploading par file to {0}", parFileRemotePath);
-				using (var remoteFile = ftpClient.OpenWrite(_settings.FtpArmaPath + _settings.FtpParFileName))
-				using (var parFileMemoryStream = new MemoryStream())
-				using (var parFileStreamWriter = new StreamWriter(parFileMemoryStream))
+				Log("Uploading par file to {0}", parFileRemotePath);
+				if (SkipFtpActions)
 				{
-					parFileStreamWriter.Write(parFileContentsToUpload);
-					parFileStreamWriter.Flush();
-					parFileMemoryStream.Position = 0;
-
-					parFileMemoryStream.CopyTo(remoteFile);
+					Log("\tSkipped uploading because 'Local Actions Only' was selected");
 				}
-			}
+				else
+				{
+					using (var remoteFile = ftpClient.OpenWrite(_settings.FtpArmaPath + _settings.FtpParFileName))
+					using (var parFileMemoryStream = new MemoryStream())
+					using (var parFileStreamWriter = new StreamWriter(parFileMemoryStream))
+					{
+						parFileStreamWriter.Write(parFileContentsToUpload);
+						parFileStreamWriter.Flush();
+						parFileMemoryStream.Position = 0;
 
-			Log("Done!");
+						parFileMemoryStream.CopyTo(remoteFile);
+					}
+				}
+				Log("Done.");
+			}
+			Log("");
+			Log("All Done!");
 			Log("");
 			Log("Successfully updated server!");
 		}
@@ -308,8 +346,8 @@ namespace Gatekeeper
 
 		private void StartNewPhase(Phase newPhase)
 		{
-			Log("Finished {0} phase.", CurrentPhase);
-			Log ("Starting '{0}' phase.", newPhase);
+			Log(LogLevel.Debug, "Finished {0} phase.", CurrentPhase);
+			Log(LogLevel.Debug, "Starting '{0}' phase.", newPhase);
 			CurrentPhase = newPhase;	
 			if (PhaseChanged != null) { PhaseChanged(this, new EventArgs()); }
 		}
@@ -321,6 +359,7 @@ namespace Gatekeeper
 
 		private void Log(LogLevel level, string format, params object[] args)
 		{
+			if (level == LogLevel.Debug && !ShowDebugOutput) { return; }
 			var message = String.Format(format, args);
 			switch(level)
 			{
