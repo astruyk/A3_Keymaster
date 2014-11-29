@@ -30,7 +30,7 @@ namespace Gatekeeper
 			ExitCommand = new DelegateCommand(Exit);
 			OpenWikiInBrowserCommand = new DelegateCommand(OpenWikiInBrowser);
 			ShowAboutDialogCommand = new DelegateCommand(ShowAboutDialog);
-			StartCommand = new DelegateCommand(Start);
+			StartCommand = new DelegateCommand(Start, CanStart);
 			_outputTextBuilder = new StringBuilder();
 
 			worker.DoWork += worker_DoWork;
@@ -62,6 +62,11 @@ namespace Gatekeeper
 		{
 			ServerUpdater updater = new ServerUpdater(ServerSettings, ServerSettings.Configs.ElementAt(SelectedServerSettings));
 			worker.RunWorkerAsync(updater);
+		}
+
+		private bool CanStart(object parameter)
+		{
+			return !worker.IsBusy;
 		}
 
 		void updater_OutputGenerated(object sender, string e)
