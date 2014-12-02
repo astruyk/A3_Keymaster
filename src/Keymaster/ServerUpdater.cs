@@ -106,12 +106,29 @@ namespace Gatekeeper
 			}
 
 			// Generate the list of mods that we need to install of the server
-			var modsForServer = playWithSixMods.Except(_settings.ClientOnlyModList).Concat(_config.ServerOnlyMods);
-			Log("Found {0} mod(s) that need to be running on the server.", modsForServer.Count());
+			var modsForServer = playWithSixMods.Except(_settings.ClientOnlyModList).ToList();
+			Log("Found {0} mod(s) from PW6 that need to be running on the server.", modsForServer.Count());
 			foreach (var mod in modsForServer)
 			{
 				Log("\t{0}", mod);
 			}
+			if (_config.ServerOnlyMods.Any())
+			{
+				Log("Checking for {0} mod(s) that are specified as 'server-only'.", _config.ServerOnlyMods.Count());
+				foreach (var modName in _config.ServerOnlyMods)
+				{
+					if (!modsForServer.Contains(modName, StringComparer.OrdinalIgnoreCase))
+					{
+						Log("\tAdding {0}", modName);
+						modsForServer.Add(modName);
+					}
+					else
+					{
+						Log("\tIgnoring {0}, it is already added.", modName);
+					}
+				}
+			}
+
 
 			// Generate the command line we need to run to start the server
 			var modCommandLine = string.Format("-mod={0}", String.Join(";", modsForServer));
@@ -125,7 +142,7 @@ namespace Gatekeeper
 			// Generate a mapping of the keys we need to install to the list of mods
 			// that require them (for reporting)
 			var keysToInstall = new Dictionary<string, List<string>>(StringComparer.CurrentCultureIgnoreCase);
-			foreach (var modName in playWithSixMods.Concat(_settings.ManualMods))
+			foreach (var modName in playWithSixMods.Concat(_settings.ManualKeyMods))
 			{
 				string[] requiredKeys;
 				if (keyMappings.TryGetValue(modName, out requiredKeys))
@@ -168,6 +185,18 @@ namespace Gatekeeper
 			foreach (var entry in keysToInstall)
 			{
 				Log("\t{0} -> {{ {1} }}", entry.Key, String.Join(",", entry.Value));
+			}
+
+			// Apply the blacklist
+			Log("Applying blacklist...");
+			foreach (var keyName in _settings.BlacklistedKeys)
+			{
+				List<string> modsRequestingKey;
+				if (keysToInstall.TryGetValue(keyName, out modsRequestingKey))
+				{
+					Log("\t Removing '{0}' because it is blacklisted.", keyName);
+					keysToInstall.Remove(keyName);
+				}
 			}
 
 			// Actually download all the keys we need

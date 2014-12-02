@@ -18,14 +18,16 @@ namespace Gatekeeper
 		public String KeystoreUrl { get; private set; }
 		public String KeyMappingFileUrl { get; private set; }
 		public List<String> ManualKeys { get; private set; }
-		public List<String> ManualMods { get; private set; }
+		public List<String> BlacklistedKeys { get; private set; }
+		public List<String> ManualKeyMods { get; private set; }
 		public List<String> ClientOnlyModList { get; private set; }
 		public List<Config> Configs { get; private set; }
 
 		public ServerSettings(XElement rootElement)
 		{
 			ManualKeys = new List<string>();
-			ManualMods = new List<string>();
+			BlacklistedKeys = new List<string>();
+			ManualKeyMods = new List<string>();
 			ClientOnlyModList = new List<string>();
 			Configs = new List<Config>();
 
@@ -43,7 +45,14 @@ namespace Gatekeeper
 
 			// Load the manual mods and keys
 			ManualKeys.AddRange(rootElement.Element("manualKeys").Elements("key").Select(x => x.Value));
-			ManualMods.AddRange(rootElement.Element("manualKeys").Elements("mod").Select(x => x.Value));
+			ManualKeyMods.AddRange(rootElement.Element("manualKeys").Elements("mod").Select(x => x.Value));
+
+			// Load the blacklist for keys
+			var blacklistElement = rootElement.Element("blacklistKeys");
+			if (blacklistElement != null)
+			{
+				BlacklistedKeys.AddRange(blacklistElement.Elements("key").Select(x => x.Value));
+			}
 
 			// Load the client only mod list
 			ClientOnlyModList.AddRange(rootElement.Element("clientOnlyModList").Elements("mod").Select(x => x.Value));
