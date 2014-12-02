@@ -106,7 +106,7 @@ namespace Gatekeeper
 			}
 
 			// Generate the list of mods that we need to install of the server
-			var modsForServer = playWithSixMods.Except(_settings.ClientOnlyModList);
+			var modsForServer = playWithSixMods.Except(_settings.ClientOnlyModList).Concat(_config.ServerOnlyMods);
 			Log("Found {0} mod(s) that need to be running on the server.", modsForServer.Count());
 			foreach (var mod in modsForServer)
 			{

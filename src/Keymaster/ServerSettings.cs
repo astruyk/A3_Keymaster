@@ -60,12 +60,20 @@ namespace Gatekeeper
 			public String Name { get; private set; }
 			public String PlayWithSixConfigFileUrl { get; private set; }
 			public String ParFileSourceUrl { get; private set; }
+			public List<String> ServerOnlyMods { get; private set; }
 
 			public Config(XElement rootElement)
 			{
+				ServerOnlyMods = new List<string>();
+				
 				Name = rootElement.Attribute("name").Value;
 				PlayWithSixConfigFileUrl = rootElement.Element("playWithSixConfigFileUrl").Value;
 				ParFileSourceUrl = rootElement.Element("parFileSourceUrl").Value;
+				var serverOnlyModElement = rootElement.Element("serverOnlyMods");
+				if (serverOnlyModElement != null)
+				{
+					ServerOnlyMods.AddRange(serverOnlyModElement.Elements("mod").Select(x => x.Value));
+				}
 			}
 
 			public override string ToString()
