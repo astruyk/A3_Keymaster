@@ -31,10 +31,8 @@ namespace Gatekeeper
 				XElement clientSettings = XElement.Load("settings.xml");
 				var configUrl = clientSettings.Descendants().Where(x => x.Name == "configUrl").First().Value;
 				ServerSettings serverConfig = ServerSettings.LoadFromUrl(configUrl);
-				((AppDataSource)DataContext).SetServerStettings(serverConfig);
+				((AppDataSource)DataContext).SetServerSettings(serverConfig);
 			}
         }
-
-		
     }
 }

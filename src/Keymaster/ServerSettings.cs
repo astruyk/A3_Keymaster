@@ -23,6 +23,10 @@ namespace Gatekeeper
 		public List<String> ClientOnlyModList { get; private set; }
 		public List<Config> Configs { get; private set; }
 
+		public int LatestMajorVersion { get; private set; }
+		public int LatestMinorVersion { get; private set; }
+		public int LatestPatchVersion { get; private set; }
+
 		public ServerSettings(XElement rootElement)
 		{
 			ManualKeys = new List<string>();
@@ -30,6 +34,15 @@ namespace Gatekeeper
 			ManualKeyMods = new List<string>();
 			ClientOnlyModList = new List<string>();
 			Configs = new List<Config>();
+
+			// Load version info (for forced updating)
+			var versionElement = rootElement.Element("latestVersion");
+			if (versionElement != null)
+			{
+				LatestMajorVersion = int.Parse(versionElement.Element("majorVersion").Value);
+				LatestMinorVersion = int.Parse(versionElement.Element("minorVersion").Value);
+				LatestPatchVersion = int.Parse(versionElement.Element("patchVersion").Value);
+			}
 
 			// Load the flat strings
 			FtpAddress = rootElement.Element("ftpAddress").Value;
@@ -95,7 +108,8 @@ namespace Gatekeeper
 		{
 			WebClient client = new WebClient();
 			var urlContents = client.DownloadString(url);
-			return new ServerSettings(XElement.Parse(urlContents));
+			var rootElement = XElement.Parse(urlContents);
+			return new ServerSettings(rootElement);
 		}
 	}
 }

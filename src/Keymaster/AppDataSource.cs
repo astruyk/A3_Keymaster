@@ -64,7 +64,7 @@ namespace Gatekeeper
 			// DONE!
 		}
 
-		public void SetServerStettings(ServerSettings settings)
+		public void SetServerSettings(ServerSettings settings)
 		{
 			ServerSettings = settings;
 			OnPropertyChanged("ServerSettings");
@@ -72,8 +72,27 @@ namespace Gatekeeper
 
 		private void Start(object parameter)
 		{
-			ServerUpdater updater = new ServerUpdater(ServerSettings, ServerSettings.Configs.ElementAt(SelectedServerSettings));
-			worker.RunWorkerAsync(updater);
+			var needsUpdate = false;
+			var assemblyVersionString = System.Diagnostics.FileVersionInfo.GetVersionInfo(System.Reflection.Assembly.GetExecutingAssembly().Location).FileVersion;
+			if (ServerSettings.LatestMajorVersion != 0 || ServerSettings.LatestMinorVersion != 0 || ServerSettings.LatestPatchVersion != 0)
+			{
+				var versionParts = assemblyVersionString.Split('.').Select(x => int.Parse(x)).ToArray();
+				if (versionParts[0] < ServerSettings.LatestMajorVersion || versionParts[1] < ServerSettings.LatestMinorVersion || versionParts[2] < ServerSettings.LatestPatchVersion)
+				{
+					needsUpdate = true;
+				}
+			}
+
+			if (needsUpdate)
+			{
+				var messageString = string.Format("This version ({0}) is out of date. Latest version is {1}.{2}.{3}.", assemblyVersionString, ServerSettings.LatestMajorVersion, ServerSettings.LatestMinorVersion, ServerSettings.LatestPatchVersion);
+				MessageBox.Show(messageString, "Update Required", MessageBoxButton.OK, MessageBoxImage.Error);
+			}
+			else
+			{
+				ServerUpdater updater = new ServerUpdater(ServerSettings, ServerSettings.Configs.ElementAt(SelectedServerSettings));
+				worker.RunWorkerAsync(updater);
+			}
 		}
 
 		private bool CanStart(object parameter)
