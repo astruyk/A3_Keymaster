@@ -9,9 +9,7 @@
 	<Grid>
 		<Grid.RowDefinitions>
 			<RowDefinition Height="Auto" />
-			<RowDefinition Height="Auto" />
-			<RowDefinition Height="*" />
-			<RowDefinition Height="Auto" />
+			<RowDefinition />
 		</Grid.RowDefinitions>
 		<Menu Grid.Row="0" IsMainMenu="True">
 			<MenuItem Header="_File" >
@@ -26,17 +24,42 @@
 				<MenuItem Header="_About" Command="{Binding ShowAboutDialogCommand, Mode=OneWay}" />
 			</MenuItem>
 		</Menu>
-		<Grid Grid.Row="1">
-			<Grid.ColumnDefinitions>
-				<ColumnDefinition Width="*"/>
-				<ColumnDefinition Width="Auto"/>
-			</Grid.ColumnDefinitions>
-			<ComboBox Grid.Column="0" ItemsSource="{Binding ServerSettings.Configs, Mode=OneWay}" SelectedIndex="{Binding SelectedServerSettings}" />
-			<Button Grid.Column="1" Content="GO!" IsDefault="True" Margin="5,0,0,0" Padding="1" MinWidth="100" Command="{Binding StartCommand, Mode=OneWay}" />
-		</Grid>
-
-		<ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Auto">
-			<TextBox IsReadOnly="True" Text="{Binding OutputText, Mode=OneWay}" />
-		</ScrollViewer>
+		<TabControl Grid.Row="1">
+			<TabItem Header="Switch Server Modes">
+				<Grid>
+					<Grid.RowDefinitions>
+						<RowDefinition Height="Auto" />
+						<RowDefinition Height="*" />
+					</Grid.RowDefinitions>
+					<Grid Grid.Row="0">
+						<Grid.ColumnDefinitions>
+							<ColumnDefinition />
+							<ColumnDefinition Width="Auto"/>
+						</Grid.ColumnDefinitions>
+						<ComboBox Grid.Column="0" ItemsSource="{Binding ServerSettings.Configs, Mode=OneWay}" SelectedIndex="{Binding SelectedServerSettings}" />
+						<Button Grid.Column="2" Content="GO!" IsDefault="True" Margin="5,0,0,0" Padding="1" MinWidth="100" Command="{Binding StartCommand, Mode=OneWay}" />
+					</Grid>
+					<ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" Margin="2,4,2,2">
+						<TextBox IsReadOnly="True" Text="{Binding OutputText, Mode=OneWay}" />
+					</ScrollViewer>
+				</Grid>
+			</TabItem>
+			<TabItem Header="Manage Missions">
+				<Grid>
+					<Grid.ColumnDefinitions>
+						<ColumnDefinition Width="*"/>
+						<ColumnDefinition Width="Auto"/>
+					</Grid.ColumnDefinitions>
+					<ListBox Margin="2">
+					</ListBox>
+					<StackPanel Grid.Column="2" Margin="2">
+						<Button Content="Refresh" />
+						<Button Content="Upload" />
+						<Button Content="Download" />
+						<Button Content="Delete" />
+					</StackPanel>
+				</Grid>
+			</TabItem>
+		</TabControl>
 	</Grid>
 </Window>
