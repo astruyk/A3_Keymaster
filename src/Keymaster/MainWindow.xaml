@@ -10,6 +10,7 @@
 		<Grid.RowDefinitions>
 			<RowDefinition Height="Auto" />
 			<RowDefinition />
+			<RowDefinition Height="Auto" />
 		</Grid.RowDefinitions>
 		<Menu Grid.Row="0" IsMainMenu="True">
 			<MenuItem Header="_File" >
@@ -61,5 +62,10 @@
 				</Grid>
 			</TabItem>
 		</TabControl>
+		<StatusBar Grid.Row="2">
+			<StatusBarItem HorizontalAlignment="Right">
+				<TextBlock Text="Status" />
+			</StatusBarItem>
+		</StatusBar>
 	</Grid>
 </Window>
