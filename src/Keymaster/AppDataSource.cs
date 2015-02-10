@@ -35,21 +35,21 @@ namespace Gatekeeper
 		}
 
 		private StringBuilder _outputTextBuilder;
-		private readonly BackgroundWorker worker = new BackgroundWorker();
+		private readonly BackgroundWorker changeServerModeWorker = new BackgroundWorker();
 
 		public AppDataSource()
 		{
 			ExitCommand = new DelegateCommand(Exit);
 			OpenWikiInBrowserCommand = new DelegateCommand(OpenWikiInBrowser);
 			ShowAboutDialogCommand = new DelegateCommand(ShowAboutDialog);
-			StartCommand = new DelegateCommand(Start, CanStart);
+			StartCommand = new DelegateCommand(StartChangeServerMode, CanStartChangeServerMode);
 			_outputTextBuilder = new StringBuilder();
 
-			worker.DoWork += worker_DoWork;
-			worker.RunWorkerCompleted += worker_RunWorkerCompleted;
+			changeServerModeWorker.DoWork += changeServerModeWorker_DoWork;
+			changeServerModeWorker.RunWorkerCompleted += changeServerModeWorker_RunWorkerCompleted;
 		}
 
-		void worker_DoWork(object sender, DoWorkEventArgs e)
+		void changeServerModeWorker_DoWork(object sender, DoWorkEventArgs e)
 		{
 			_outputTextBuilder.Clear();
 			OnPropertyChanged("OutputText");
@@ -59,7 +59,7 @@ namespace Gatekeeper
 			updater.DoUpdate();
 		}
 
-		void worker_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
+		void changeServerModeWorker_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
 		{
 			// DONE!
 		}
@@ -70,7 +70,7 @@ namespace Gatekeeper
 			OnPropertyChanged("ServerSettings");
 		}
 
-		private void Start(object parameter)
+		private void StartChangeServerMode(object parameter)
 		{
 			var needsUpdate = false;
 			var assemblyVersionString = System.Diagnostics.FileVersionInfo.GetVersionInfo(System.Reflection.Assembly.GetExecutingAssembly().Location).FileVersion;
@@ -91,13 +91,13 @@ namespace Gatekeeper
 			else
 			{
 				ServerUpdater updater = new ServerUpdater(ServerSettings, ServerSettings.Configs.ElementAt(SelectedServerSettings));
-				worker.RunWorkerAsync(updater);
+				changeServerModeWorker.RunWorkerAsync(updater);
 			}
 		}
 
-		private bool CanStart(object parameter)
+		private bool CanStartChangeServerMode(object parameter)
 		{
-			return !worker.IsBusy;
+			return !changeServerModeWorker.IsBusy;
 		}
 
 		void updater_OutputGenerated(object sender, string e)
