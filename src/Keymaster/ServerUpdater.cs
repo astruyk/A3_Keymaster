@@ -27,9 +27,11 @@ namespace Gatekeeper
 			DownloadingParFile,
 			ProcessingDownloadedData,
 			DownloadingKeyFiles,
+			DownloadingExtraFiles,
 			ConnectingToFtpServer,
 			RemovingStaleKeys,
 			UploadingNewKeys,
+			UploadingExtraFiles,
 			RemovingStaleParFile,
 			UploadingNewParFile
 		}
@@ -132,8 +134,8 @@ namespace Gatekeeper
 
 			// Generate the command line we need to run to start the server
 			var modCommandLine = string.Format("-mod={0}", String.Join(";", modsForServer));
-			Log("Generated mod command-line args for server.");
-			Log(LogLevel.Debug, modCommandLine);
+			Log("Generated mod command-line args for server:");
+			Log("\t" + modCommandLine);
 
 			// Generate a modified version of the par file
 			var parFileContentsToUpload = GetModifiedParFileContents(parFileContents, modCommandLine);
@@ -184,7 +186,7 @@ namespace Gatekeeper
 			Log("Found {0} keys that need to be installed on the server.", keysToInstall.Count());
 			foreach (var entry in keysToInstall)
 			{
-				Log("\t{0} -> {{ {1} }}", entry.Key, String.Join(",", entry.Value));
+				Log("\t{0} (required by: {1} )", entry.Key, String.Join(",", entry.Value));
 			}
 
 			// Apply the blacklist
@@ -217,6 +219,28 @@ namespace Gatekeeper
 			}
 			Log("Done downloading keys.");
 
+			// Download extra files we need
+			StartNewPhase(Phase.DownloadingExtraFiles);
+			if (_config.FilesToCopy.Count() > 0)
+			{
+				Log("Downloading {0} extra files from remote server...", _config.FilesToCopy.Count());
+				int currentExtraFileId = 0;
+				foreach (var entry in _config.FilesToCopy)
+				{
+					var sourceUrl = entry.Key;
+					var extraFileLoc = Path.Combine(tmpDirectory, string.Format("extraFile_{0}.tmp", currentExtraFileId));
+					Log("\t{0}: {1}", currentExtraFileId, sourceUrl);
+					Log(LogLevel.Debug, "\t( {0} -> {1} )", sourceUrl, extraFileLoc);
+					client.DownloadFile(sourceUrl, extraFileLoc);
+					currentExtraFileId++;
+				}
+				Log("Done downloading extra files.");
+			}
+			else
+			{
+				Log("No extra files to download...");
+			}
+
 			// Login to the FTP server
 			StartNewPhase(Phase.ConnectingToFtpServer);
 			var ftpKeyDirectoryUri = new UriBuilder();
@@ -225,6 +249,8 @@ namespace Gatekeeper
 			ftpKeyDirectoryUri.Host = _settings.FtpAddress;
 			ftpKeyDirectoryUri.UserName = _settings.FtpUser;
 			ftpKeyDirectoryUri.Password = _settings.FtpPassword;
+
+			string localOnlyErrorMessage = "\t\t--- Skipped remote action because 'Local Actions Only' was selected ---";
 
 			Log("Connecting to {0}", ftpKeyDirectoryUri.Uri);
 			using (var ftpClient = FtpClient.Connect(ftpKeyDirectoryUri.Uri))
@@ -241,7 +267,7 @@ namespace Gatekeeper
 					Log("\tDeleting stale key: {0}", file.FullName);
 					if (SkipFtpActions)
 					{
-						Log("\tSkipped uploading because 'Local Actions Only' was selected");
+						Log(localOnlyErrorMessage);
 					}
 					else
 					{
@@ -260,7 +286,7 @@ namespace Gatekeeper
 					Log("\tUploading: {0} -> {1}", localPath, remotePath);
 					if (SkipFtpActions)
 					{
-						Log("\tSkipped uploading because 'Local Actions Only' was selected");
+						Log(localOnlyErrorMessage);
 					}
 					else
 					{
@@ -272,6 +298,59 @@ namespace Gatekeeper
 					}
 				}
 				Log("Done.");
+
+				// Remove any stale versions of each extra file that exists
+				StartNewPhase(Phase.UploadingExtraFiles);
+				if (_config.FilesToCopy.Count() > 0)
+				{
+					Log("Starting upload of extra files...");
+					int currentExtraFileId = 0;
+					foreach (var entry in _config.FilesToCopy)
+					{
+						var localFileLocation = Path.Combine(tmpDirectory, string.Format("extraFile_{0}.tmp", currentExtraFileId));
+						var fullDestinationPath = string.Format("{0}{1}", _settings.FtpArmaPath, entry.Value);
+						var remoteDestinationDirectory = Path.GetDirectoryName(fullDestinationPath);
+						var remoteFileName = Path.GetFileName(fullDestinationPath);
+						Log("\t{0}: {1}", currentExtraFileId, fullDestinationPath);
+						Log(LogLevel.Debug, "\t ( {0} / {1} )", remoteDestinationDirectory, remoteFileName);
+						files = ftpClient.GetListing(remoteDestinationDirectory);
+						foreach(var file in files)
+						{
+							if (file.Name.Equals(remoteFileName))
+							{
+								Log("\t\tFound stale version of file... Deleting.");
+								if (SkipFtpActions)
+								{
+									Log(localOnlyErrorMessage);
+								}
+								else
+								{
+									ftpClient.DeleteFile(file.FullName);
+								}
+							}
+						}
+
+						if (SkipFtpActions)
+						{
+							Log(localOnlyErrorMessage);
+						}
+						else
+						{
+							using (var remoteFile = ftpClient.OpenWrite(fullDestinationPath, FtpDataType.Binary))
+							using (var localFile = File.OpenRead(localFileLocation))
+							{
+								localFile.CopyTo(remoteFile);
+							}
+						}
+
+						currentExtraFileId++;
+					}
+					Log("Done.");
+				}
+				else
+				{
+					Log("No extra files to upload.");
+				}
 
 				// Remove old PAR file
 				StartNewPhase(Phase.RemovingStaleParFile);
@@ -285,7 +364,7 @@ namespace Gatekeeper
 						Log(LogLevel.Debug, "Stale par file at: " + file.FullName);
 						if (SkipFtpActions)
 						{
-							Log("\tSkipped uploading because 'Local Actions Only' was selected");
+							Log(localOnlyErrorMessage);
 						}
 						else
 						{
@@ -301,7 +380,7 @@ namespace Gatekeeper
 				Log("Uploading par file to {0}", parFileRemotePath);
 				if (SkipFtpActions)
 				{
-					Log("\tSkipped uploading because 'Local Actions Only' was selected");
+					Log(localOnlyErrorMessage);
 				}
 				else
 				{
