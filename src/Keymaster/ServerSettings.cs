@@ -83,10 +83,12 @@ namespace Gatekeeper
 			public String PlayWithSixConfigFileUrl { get; private set; }
 			public String ParFileSourceUrl { get; private set; }
 			public List<String> ServerOnlyMods { get; private set; }
+			public Dictionary<String, String> FilesToCopy { get; private set; }
 
 			public Config(XElement rootElement)
 			{
 				ServerOnlyMods = new List<string>();
+				FilesToCopy = new Dictionary<String, String>();
 				
 				Name = rootElement.Attribute("name").Value;
 				PlayWithSixConfigFileUrl = rootElement.Element("playWithSixConfigFileUrl").Value;
@@ -95,6 +97,21 @@ namespace Gatekeeper
 				if (serverOnlyModElement != null)
 				{
 					ServerOnlyMods.AddRange(serverOnlyModElement.Elements("mod").Select(x => x.Value));
+				}
+				foreach (var fileToCopyElement in rootElement.Elements("copyFile"))
+				{
+					if (fileToCopyElement.Attribute("source") == null)
+					{
+						// Ignore malformed XML element.
+					}
+					else if (fileToCopyElement.Attribute("destination") == null)
+					{
+						// Ignore malformed XML element.
+					}
+					else
+					{
+						FilesToCopy.Add(fileToCopyElement.Attribute("source").Value, fileToCopyElement.Attribute("destination").Value);
+					}
 				}
 			}
 
