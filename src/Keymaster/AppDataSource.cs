@@ -45,6 +45,7 @@ namespace Gatekeeper
 			StartCommand = new DelegateCommand(StartChangeServerMode, CanStartChangeServerMode);
 			_outputTextBuilder = new StringBuilder();
 
+			_changeServerModeWorker.WorkerReportsProgress = true;
 			_changeServerModeWorker.DoWork += changeServerModeWorker_DoWork;
 			_changeServerModeWorker.RunWorkerCompleted += changeServerModeWorker_RunWorkerCompleted;
 			_changeServerModeWorker.ProgressChanged += changeServerModeWorker_ReportProgress;
