@@ -26,7 +26,7 @@
 			</MenuItem>
 		</Menu>
 		<TabControl Grid.Row="1">
-			<TabItem Header="Switch Server Modes">
+			<TabItem Header="Server Modes" Height="23" VerticalAlignment="Top">
 				<Grid>
 					<Grid.RowDefinitions>
 						<RowDefinition Height="Auto" />
@@ -45,13 +45,14 @@
 					</ScrollViewer>
 				</Grid>
 			</TabItem>
-			<TabItem Header="Manage Missions">
+			<TabItem Header="Missions" IsEnabled="False">
 				<Grid>
 					<Grid.ColumnDefinitions>
-						<ColumnDefinition Width="*"/>
+						<ColumnDefinition Width="162*"/>
+						<ColumnDefinition Width="281*"/>
 						<ColumnDefinition Width="Auto"/>
 					</Grid.ColumnDefinitions>
-					<ListBox Margin="2">
+					<ListBox Margin="2" Grid.ColumnSpan="2">
 					</ListBox>
 					<StackPanel Grid.Column="2" Margin="2">
 						<Button Content="Refresh" />
@@ -60,6 +61,11 @@
 						<Button Content="Delete" />
 					</StackPanel>
 				</Grid>
+			</TabItem>
+			<TabItem Header="Log" IsEnabled="False">
+				<ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" Margin="2,4,2,2">
+					<TextBox IsReadOnly="True" Text="{Binding OutputText, Mode=OneWay}" />
+				</ScrollViewer>
 			</TabItem>
 		</TabControl>
 		<StatusBar Grid.Row="2">

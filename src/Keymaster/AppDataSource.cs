@@ -35,7 +35,7 @@ namespace Gatekeeper
 		}
 
 		private StringBuilder _outputTextBuilder;
-		private readonly BackgroundWorker changeServerModeWorker = new BackgroundWorker();
+		private readonly BackgroundWorker _changeServerModeWorker = new BackgroundWorker();
 
 		public AppDataSource()
 		{
@@ -45,8 +45,9 @@ namespace Gatekeeper
 			StartCommand = new DelegateCommand(StartChangeServerMode, CanStartChangeServerMode);
 			_outputTextBuilder = new StringBuilder();
 
-			changeServerModeWorker.DoWork += changeServerModeWorker_DoWork;
-			changeServerModeWorker.RunWorkerCompleted += changeServerModeWorker_RunWorkerCompleted;
+			_changeServerModeWorker.DoWork += changeServerModeWorker_DoWork;
+			_changeServerModeWorker.RunWorkerCompleted += changeServerModeWorker_RunWorkerCompleted;
+			_changeServerModeWorker.ProgressChanged += changeServerModeWorker_ReportProgress;
 		}
 
 		void changeServerModeWorker_DoWork(object sender, DoWorkEventArgs e)
@@ -62,6 +63,12 @@ namespace Gatekeeper
 		void changeServerModeWorker_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
 		{
 			// DONE!
+		}
+
+		void changeServerModeWorker_ReportProgress(object sender, ProgressChangedEventArgs e)
+		{
+			_outputTextBuilder.AppendLine((string)e.UserState);
+			OnPropertyChanged("OutputText");
 		}
 
 		public void SetServerSettings(ServerSettings settings)
@@ -91,19 +98,18 @@ namespace Gatekeeper
 			else
 			{
 				ServerUpdater updater = new ServerUpdater(ServerSettings, ServerSettings.Configs.ElementAt(SelectedServerSettings));
-				changeServerModeWorker.RunWorkerAsync(updater);
+				_changeServerModeWorker.RunWorkerAsync(updater);
 			}
 		}
 
 		private bool CanStartChangeServerMode(object parameter)
 		{
-			return !changeServerModeWorker.IsBusy;
+			return !_changeServerModeWorker.IsBusy;
 		}
 
 		void updater_OutputGenerated(object sender, string e)
 		{
-			_outputTextBuilder.AppendLine(e);
-			OnPropertyChanged("OutputText");
+			_changeServerModeWorker.ReportProgress(0, e);
 		}
 
 		private void Exit(object parameter)
