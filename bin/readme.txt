@@ -2,6 +2,18 @@ This program is a quick script intended to make changing the keys on the server 
 
 See https://github.com/astruyk/A3_ServerManager/wiki for usage instructions and details.
 
+Version 2.3.0
+* Use the keys stored on the server instead of requiring hosted key store.
+
+Version 2.2.0
+* Add support for uploading extra files.
+* Fix a threading issue that caused rare crash
+* Placeholder tab for Mission managment.
+* Some UI tweaks
+
+Version 2.1.0
+* Add support for forcing updates via. config file.
+
 Version 2.0.1
 Keymaster Version 2.0.1 Released
 * Fix crash when pressing 'Go' when there was a process already underway
