@@ -15,11 +15,8 @@ namespace Gatekeeper
 		public String FtpPassword { get; private set; }
 		public String FtpArmaPath { get; private set; }
 		public String FtpParFileName { get; private set; }
-		public String KeystoreUrl { get; private set; }
-		public String KeyMappingFileUrl { get; private set; }
-		public List<String> ManualKeys { get; private set; }
 		public List<String> BlacklistedKeys { get; private set; }
-		public List<String> ManualKeyMods { get; private set; }
+		public List<String> ManualMods { get; private set; }
 		public List<String> ClientOnlyModList { get; private set; }
 		public List<Config> Configs { get; private set; }
 
@@ -29,9 +26,8 @@ namespace Gatekeeper
 
 		public ServerSettings(XElement rootElement)
 		{
-			ManualKeys = new List<string>();
 			BlacklistedKeys = new List<string>();
-			ManualKeyMods = new List<string>();
+			ManualMods = new List<string>();
 			ClientOnlyModList = new List<string>();
 			Configs = new List<Config>();
 
@@ -50,15 +46,12 @@ namespace Gatekeeper
 			FtpPassword = rootElement.Element("ftpPassword").Value;
 			FtpArmaPath = rootElement.Element("ftpArmaPath").Value;
 			FtpParFileName = rootElement.Element("ftpParFileName").Value;
-			KeystoreUrl = rootElement.Element("keystoreUrl").Value;
-			KeyMappingFileUrl = rootElement.Element("keyMappingFileUrl").Value;
 
 			// Fixup the path to look like a dir if it doesn't already
 			if (!FtpArmaPath.EndsWith("/")) { FtpArmaPath += "/"; }
 
-			// Load the manual mods and keys
-			ManualKeys.AddRange(rootElement.Element("manualKeys").Elements("key").Select(x => x.Value));
-			ManualKeyMods.AddRange(rootElement.Element("manualKeys").Elements("mod").Select(x => x.Value));
+			// Load the manual mods
+			ManualMods.AddRange(rootElement.Element("manualKeys").Elements("mod").Select(x => x.Value));
 
 			// Load the blacklist for keys
 			var blacklistElement = rootElement.Element("blacklistKeys");

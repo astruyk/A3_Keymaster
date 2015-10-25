@@ -22,7 +22,6 @@ namespace Gatekeeper
 		{
 			Idle,
 			Starting,
-			DownloadingMappingFile,
 			DownloadingPlayWithSixConfig,
 			DownloadingParFile,
 			ProcessingDownloadedData,
@@ -41,7 +40,6 @@ namespace Gatekeeper
 			switch (phase)
 			{
 				case Phase.Idle: return "Idle";
-				case Phase.DownloadingMappingFile: return "Downloading Mapping File";
 				case Phase.DownloadingPlayWithSixConfig: return "Downloading Play With Six Config File";
 				case Phase.DownloadingParFile: return "Downloading Parameters file";
 				case Phase.ProcessingDownloadedData: return "Processing Downloaded Data";
@@ -82,15 +80,9 @@ namespace Gatekeeper
 		private void DoUpdateInternal()
 		{
 			Log("Starting...");
-			WebClient client = new WebClient();
-			StartNewPhase(Phase.DownloadingMappingFile);
-			Log("Downloading {0}", _settings.KeyMappingFileUrl);
-			var keyMappingFileContents = client.DownloadString(_settings.KeyMappingFileUrl);
-			var keyMappings = JsonConvert.DeserializeObject<Dictionary<string, string[]>>(keyMappingFileContents);
-			keyMappings = new Dictionary<string, string[]>(keyMappings, StringComparer.CurrentCultureIgnoreCase);
-
 			StartNewPhase(Phase.DownloadingPlayWithSixConfig);
 			Log("Downloading {0}", _config.PlayWithSixConfigFileUrl);
+			WebClient client = new WebClient();
 			string playWithSixConfigFileContents = client.DownloadString(_config.PlayWithSixConfigFileUrl);
 
 			StartNewPhase(Phase.DownloadingParFile);
@@ -101,7 +93,7 @@ namespace Gatekeeper
 
 			// Grab the list of mods in the play with six file.
 			var playWithSixMods = GetModsFromPlayWithSixFile(playWithSixConfigFileContents);
-			Log("Found {0} keys in play with six mod list.", playWithSixMods.Count);
+			Log("Found {0} mods in play with six mod list.", playWithSixMods.Count);
 			foreach (var mod in playWithSixMods)
 			{
 				Log("\t{0}", mod);
@@ -141,60 +133,62 @@ namespace Gatekeeper
 			var parFileContentsToUpload = GetModifiedParFileContents(parFileContents, modCommandLine);
 			Log(LogLevel.Debug, "Par File Contents:\n\n{0}", parFileContentsToUpload);
 
-			// Generate a mapping of the keys we need to install to the list of mods
-			// that require them (for reporting)
-			var keysToInstall = new Dictionary<string, List<string>>(StringComparer.CurrentCultureIgnoreCase);
-			foreach (var modName in playWithSixMods.Concat(_settings.ManualKeyMods))
+			var ftpKeyDirectoryUri = new UriBuilder();
+			ftpKeyDirectoryUri.Scheme = "ftp";
+			ftpKeyDirectoryUri.Path = "";
+			ftpKeyDirectoryUri.Host = _settings.FtpAddress;
+			ftpKeyDirectoryUri.UserName = _settings.FtpUser;
+			ftpKeyDirectoryUri.Password = _settings.FtpPassword;
+
+			// Discover the key files we need for the mods we're going to load.
+			// Generate a mapping of a mod name to a list of <key name, ftp path> pairs
+			var modToKeyList = new Dictionary<string, List<Tuple<string, string>>>();
+			var keysToInstall = new Dictionary<string, string>(StringComparer.CurrentCultureIgnoreCase);
+			using (var ftpClient = FtpClient.Connect(ftpKeyDirectoryUri.Uri))
 			{
-				string[] requiredKeys;
-				if (keyMappings.TryGetValue(modName, out requiredKeys))
+				foreach (var modName in playWithSixMods.Concat(_settings.ManualMods))
 				{
-					foreach (var key in requiredKeys)
+					Log("Looking up keys for '{0}'", modName);
+					var modDirectory = String.Format("{0}/{1}", _settings.FtpArmaPath, modName);
+					var keyList = new List<Tuple<string, string>>();
+					foreach(var modFile in ftpClient.GetListing(modDirectory))
 					{
-						List<string> modsRequestingKey;
-						if (keysToInstall.TryGetValue(key, out modsRequestingKey))
+						if (modFile.Name.Equals("keys", StringComparison.CurrentCultureIgnoreCase) || modFile.Name.Equals("key", StringComparison.CurrentCultureIgnoreCase))
 						{
-							modsRequestingKey.Add(modName);
-						}
-						else
-						{
-							keysToInstall[key] = new List<string> { modName };
+							var keyDirectory = String.Format("{0}/{1}", modDirectory, modFile.Name);
+							foreach(var keyFile in ftpClient.GetListing(keyDirectory))
+							{
+								if (keyFile.Name.EndsWith(".bikey", StringComparison.CurrentCultureIgnoreCase))
+								{
+									Log("\tFound key {0}", keyFile.Name);
+									var keyPath = String.Format("{0}/{1}", keyDirectory, keyFile.Name);
+									keyList.Add(new Tuple<string, string>(keyFile.Name, keyPath));
+									if (keysToInstall.ContainsKey(keyFile.Name))
+									{
+										Log("\t* Key is alredy required by another mod. Ignoring this version.", keyPath);
+									}
+									else
+									{
+										keysToInstall[keyFile.Name] = keyPath;
+									}
+								}
+							}
 						}
 					}
-				}
-				else
-				{
-					Log(LogLevel.Error, "Failed to find mod list entry for '{0}'. Unable to continue", modName);
-					return;
-				}
-			}
-
-			// Add the manually required keys	
-			foreach (var keyName in _settings.ManualKeys)
-			{
-				List<string> modsRequestingKey;
-				if (keysToInstall.TryGetValue(keyName, out modsRequestingKey))
-				{
-					modsRequestingKey.Add("MANUAL");
-				}
-				else
-				{
-					keysToInstall[keyName] = new List<string> { "MANUAL" };
 				}
 			}
 
 			Log("Found {0} keys that need to be installed on the server.", keysToInstall.Count());
 			foreach (var entry in keysToInstall)
 			{
-				Log("\t{0} (required by: {1} )", entry.Key, String.Join(",", entry.Value));
+				Log("\t{0} ({1})", entry.Key, entry.Value);
 			}
 
 			// Apply the blacklist
 			Log("Applying blacklist...");
 			foreach (var keyName in _settings.BlacklistedKeys)
 			{
-				List<string> modsRequestingKey;
-				if (keysToInstall.TryGetValue(keyName, out modsRequestingKey))
+				if (keysToInstall.ContainsKey(keyName))
 				{
 					Log("\t Removing '{0}' because it is blacklisted.", keyName);
 					keysToInstall.Remove(keyName);
@@ -203,19 +197,27 @@ namespace Gatekeeper
 
 			// Actually download all the keys we need
 			StartNewPhase(Phase.DownloadingKeyFiles);
-			Log("Downloading {0} keys from keystore...", keysToInstall.Count());
+			Log("Downloading {0} keys from server...", keysToInstall.Count());
 			var tmpDirectory = "tmp";
 			if (!Directory.Exists(tmpDirectory))
 			{
 				Directory.CreateDirectory(tmpDirectory);
 			}
-			foreach (var keyName in keysToInstall.Keys)
+			using (var ftpClient = FtpClient.Connect(ftpKeyDirectoryUri.Uri))
 			{
-				var keyUrl = string.Format("{0}/{1}", _settings.KeystoreUrl, keyName);
-				var keyFileLoc = Path.Combine(tmpDirectory, keyName);
-				Log("\t{0}", keyName);
-				Log(LogLevel.Debug, "\t( {0} -> {1} )", keyUrl, keyFileLoc);
-				client.DownloadFile(keyUrl, keyFileLoc);
+				foreach (var entry in keysToInstall)
+				{
+					var keyName = entry.Key;
+					var keyPath = entry.Value;
+					var keyFileLoc = Path.Combine(tmpDirectory, keyName);
+					Log("\t{0}", keyName);
+					Log(LogLevel.Debug, "\t( {0} -> {1} )", keyPath, keyFileLoc);
+					using (var readStream = ftpClient.OpenRead(keyPath, FtpDataType.Binary))
+					using (var writeStream = new System.IO.FileStream(keyFileLoc, FileMode.OpenOrCreate))
+					{
+						readStream.CopyTo(writeStream);
+					}
+				}
 			}
 			Log("Done downloading keys.");
 
@@ -243,12 +245,6 @@ namespace Gatekeeper
 
 			// Login to the FTP server
 			StartNewPhase(Phase.ConnectingToFtpServer);
-			var ftpKeyDirectoryUri = new UriBuilder();
-			ftpKeyDirectoryUri.Scheme = "ftp";
-			ftpKeyDirectoryUri.Path = "";
-			ftpKeyDirectoryUri.Host = _settings.FtpAddress;
-			ftpKeyDirectoryUri.UserName = _settings.FtpUser;
-			ftpKeyDirectoryUri.Password = _settings.FtpPassword;
 
 			string localOnlyErrorMessage = "\t\t--- Skipped remote action because 'Local Actions Only' was selected ---";
 
@@ -264,14 +260,21 @@ namespace Gatekeeper
 				Log("Deleting {0} stale keys from server.", files.Count());
 				foreach (var file in files)
 				{
-					Log("\tDeleting stale key: {0}", file.FullName);
-					if (SkipFtpActions)
+					if (file.Name.Equals("a3.bikey", StringComparison.CurrentCultureIgnoreCase))
 					{
-						Log(localOnlyErrorMessage);
+						Log("\tIgnoring existing key: {0}", file.FullName);
 					}
 					else
 					{
-						ftpClient.DeleteFile(file.FullName);
+						Log("\tDeleting stale key: {0}", file.FullName);
+						if (SkipFtpActions)
+						{
+							Log(localOnlyErrorMessage);
+						}
+						else
+						{
+							ftpClient.DeleteFile(file.FullName);
+						}
 					}
 				}
 				Log("Done.");
@@ -314,7 +317,7 @@ namespace Gatekeeper
 						Log("\t{0}: {1}", currentExtraFileId, fullDestinationPath);
 						Log(LogLevel.Debug, "\t ( {0} / {1} )", remoteDestinationDirectory, remoteFileName);
 						files = ftpClient.GetListing(remoteDestinationDirectory);
-						foreach(var file in files)
+						foreach (var file in files)
 						{
 							if (file.Name.Equals(remoteFileName))
 							{
